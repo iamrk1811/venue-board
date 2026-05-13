@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .const import TransactionTypes
+from venues.models import Venue
 
 class TransactionItemSerializer(serializers.Serializer):
     item_id = serializers.CharField(max_length=100)
@@ -16,3 +17,10 @@ class TransactionIngestSerializer(serializers.Serializer):
     items = TransactionItemSerializer(many=True)
     total = serializers.DecimalField(max_digits=10, decimal_places=2)
     staff_id = serializers.CharField(max_length=100)
+
+    def validate_venue_id(self, value):
+        try:
+            Venue.objects.get(id=value)
+        except Venue.DoesNotExist:
+            raise serializers.ValidationError("Invalid venue_id")
+        return value

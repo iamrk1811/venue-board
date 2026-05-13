@@ -1,5 +1,6 @@
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
-from .models import VenueHourlyMetrics, VenueDailySummary, VenueItemDaily, Alert
+from .models import Alert, VenueDailySummary, VenueHourlyMetrics, VenueItemDaily
 
 
 class VenueRankingSerializer(serializers.ModelSerializer):
@@ -30,5 +31,6 @@ class AlertSerializer(serializers.ModelSerializer):
         model = Alert
         fields = ["id", "venue_id", "venue_name", "type", "severity", "message", "created_at"]
 
+    @extend_schema_field(serializers.CharField(allow_null=True))
     def get_venue_name(self, obj):
         return obj.venue.name if obj.venue else None
