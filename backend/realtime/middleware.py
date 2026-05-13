@@ -2,14 +2,14 @@ from urllib.parse import parse_qs
 from channels.middleware import BaseMiddleware
 from channels.db import database_sync_to_async
 from django.contrib.auth.models import AnonymousUser
+from rest_framework_simplejwt.tokens import AccessToken
+from rest_framework_simplejwt.exceptions import TokenError
+from django.contrib.auth import get_user_model
+from channels.exceptions import DenyConnection
 
 
 @database_sync_to_async
 def get_user_from_token(token_str):
-    from rest_framework_simplejwt.tokens import AccessToken
-    from rest_framework_simplejwt.exceptions import TokenError
-    from django.contrib.auth import get_user_model
-
     User = get_user_model()
     try:
         token = AccessToken(token_str)
@@ -32,7 +32,6 @@ class JWTAuthMiddleware(BaseMiddleware):
                 scope["user"] = AnonymousUser()
 
             if not scope["user"].is_authenticated:
-                from channels.exceptions import DenyConnection
                 raise DenyConnection("Invalid or missing token")
 
         return await super().__call__(scope, receive, send)

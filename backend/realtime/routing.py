@@ -1,6 +1,6 @@
-from django.urls import path
+from django.urls import re_path
 from .consumers import DashboardConsumer
 
 websocket_urlpatterns = [
-    path("ws/dashboard/", DashboardConsumer.as_asgi()),
+    re_path(r"ws/dashboard/", DashboardConsumer.as_asgi()),
 ]

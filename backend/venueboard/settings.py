@@ -70,7 +70,6 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'venueboard.urls'
 ASGI_APPLICATION = "venueboard.asgi.application"
-WSGI_APPLICATION = "venueboard.wsgi.application"
 
 TEMPLATES = [
     {
