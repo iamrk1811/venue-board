@@ -8,7 +8,9 @@ from django.utils import timezone
 from .models import VenueHourlyMetrics, VenueDailySummary, VenueItemDaily, Alert
 from transactions.const import TransactionTypes
 from core.utils import truncate_to_hour
-
+from decouple import config
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
 
 class MetricsService:
     @staticmethod
@@ -102,10 +104,13 @@ class AnomalyService:
         if previous.total_sales <= 0:
             return
 
-        drop_pct = float(previous.total_sales - current.total_sales) / float(previous.total_sales)
+        drop_percent = float(previous.total_sales - current.total_sales) / float(previous.total_sales)
 
-        if drop_pct > 0.40:
-            severity = "critical" if drop_pct > 0.70 else "warning"
+        sale_drop_warning_threshold = config("SALES_DROP_PERCENT", cast=float, default=0.40)
+        sale_drop_critical_threshold = config("SALES_DROP_CRITICAL_THRESHOLD", cast=float, default=0.70)
+
+        if drop_percent >= sale_drop_warning_threshold:
+            severity = "critical" if drop_percent >= sale_drop_critical_threshold else "warning"
             alert, created = Alert.objects.get_or_create(
                 venue_id=venue_id,
                 type="sales_drop",
@@ -113,8 +118,8 @@ class AnomalyService:
                 defaults={
                     "severity": severity,
                     "message": (
-                        f"Sales dropped {drop_pct:.0%} vs previous hour "
-                        f"(£{current.total_sales:.2f} vs £{previous.total_sales:.2f})"
+                        f"Sales dropped {drop_percent:.0%} vs previous hour "
+                        f"(${current.total_sales:.2f} vs ${previous.total_sales:.2f})"
                     ),
                 },
             )
@@ -176,8 +181,6 @@ class AnomalyService:
 
     @staticmethod
     def _broadcast_alert(alert: Alert) -> None:
-        from channels.layers import get_channel_layer
-        from asgiref.sync import async_to_sync
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
             "dashboard",
