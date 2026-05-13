@@ -6,24 +6,24 @@ from django.db.models import F
 from django.utils import timezone
 
 from .models import VenueHourlyMetrics, VenueDailySummary, VenueItemDaily, Alert
-
-
-def _truncate_to_hour(dt):
-    return dt.replace(minute=0, second=0, microsecond=0)
+from transactions.const import TransactionTypes
+from core.utils import truncate_to_hour
 
 
 class MetricsService:
     @staticmethod
     def update_on_transaction(txn) -> None:
-        hour = _truncate_to_hour(txn.timestamp)
-        date = txn.timestamp.date()
-        is_sale = txn.type == "sale"
-        is_void = txn.type == "void"
-        is_refund = txn.type == "refund"
+        hour = truncate_to_hour(txn.created_at)
+        date = txn.created_at.date()
+
+        is_sale = txn.type == TransactionTypes.SALE
+        is_void = txn.type == TransactionTypes.VOID
+        is_refund = txn.type == TransactionTypes.REFUND
+
         sale_amount = txn.total if is_sale else Decimal("0")
 
         with db_transaction.atomic():
-            # Hourly — ensure row exists, then atomically increment
+            # Hourly, ensure row exists, then atomically increment
             VenueHourlyMetrics.objects.get_or_create(
                 venue_id=txn.venue_id,
                 hour=hour,
@@ -59,7 +59,7 @@ class MetricsService:
                 refund_count=F("refund_count") + (1 if is_refund else 0),
             )
 
-            # Item aggregates (sales only)
+            # Item aggregates for sales only
             if is_sale:
                 for item in txn.items.all():
                     VenueItemDaily.objects.get_or_create(
@@ -90,7 +90,7 @@ class AnomalyService:
     @staticmethod
     def _check_sales_drop(venue_id: int) -> None:
         now = timezone.now()
-        current_hour = _truncate_to_hour(now)
+        current_hour = truncate_to_hour(now)
         prev_hour = current_hour - timedelta(hours=1)
 
         try:
@@ -130,7 +130,7 @@ class AnomalyService:
     @staticmethod
     def _check_void_spike(venue_id: int) -> None:
         now = timezone.now()
-        current_hour = _truncate_to_hour(now)
+        current_hour = truncate_to_hour(now)
         seven_days_ago = current_hour - timedelta(days=7)
 
         try:

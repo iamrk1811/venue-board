@@ -7,7 +7,7 @@ class TransactionService:
     @staticmethod
     def ingest(validated_data: dict) -> Transaction:
         venue = Venue.objects.get(pk=validated_data["venue_id"])
-
+        txn = None
         with db_transaction.atomic():
             txn = Transaction.objects.create(
                 venue=venue,
@@ -26,10 +26,10 @@ class TransactionService:
                 for item in validated_data.get("items", [])
             ])
 
-        # # Run metrics + anomaly detection outside the atomic block so a metrics
-        # # failure never rolls back the raw transaction record.
-        # from metrics.services import MetricsService, AnomalyService
-        # MetricsService.update_on_transaction(txn)
+        # Run metrics + anomaly detection outside the atomic block so a metrics
+        # failure never rolls back the raw transaction record.
+        from metrics.services import MetricsService, AnomalyService
+        MetricsService.update_on_transaction(txn)
         # AnomalyService.check(txn.venue_id)
 
         # # Broadcast thin WebSocket event — just the venue_id, no full payload.
