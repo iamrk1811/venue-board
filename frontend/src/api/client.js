@@ -28,6 +28,7 @@ client.interceptors.response.use(
           refresh,
         });
         window.__accessToken = data.access;
+        localStorage.setItem("access_token", data.access);
         // persist rotated refresh token if the backend returns one
         if (data.refresh) localStorage.setItem("refresh_token", data.refresh);
         original.headers.Authorization = `Bearer ${data.access}`;
