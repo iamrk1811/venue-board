@@ -6,14 +6,12 @@ class DashboardConsumer(AsyncWebsocketConsumer):
     GROUP = "dashboard"
 
     async def connect(self):
-        # JWT auth is handled by JWTAuthMiddleware — if we reach here, the user is authenticated.
         await self.channel_layer.group_add(self.GROUP, self.channel_name)
         await self.accept()
 
     async def disconnect(self, close_code):
         await self.channel_layer.group_discard(self.GROUP, self.channel_name)
 
-    # Receive from WebSocket (clients don't send anything meaningful, but handle gracefully)
     async def receive(self, text_data=None, bytes_data=None):
         pass
 

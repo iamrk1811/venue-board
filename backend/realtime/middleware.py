@@ -15,7 +15,8 @@ def get_user_from_token(token_str):
         token = AccessToken(token_str)
         user = User.objects.get(pk=token["user_id"])
         return user
-    except (TokenError, User.DoesNotExist, KeyError):
+    except (TokenError, User.DoesNotExist, KeyError) as e:
+        print(f"[JWTAuthMiddleware] token error: {type(e).__name__}: {e}")
         return AnonymousUser()
 
 

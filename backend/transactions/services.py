@@ -29,6 +29,7 @@ class TransactionService:
                 for item in validated_data.get("items", [])
             ])
 
+        # TODO should be async
         # store metrics and anomaly
         MetricsService.update_on_transaction(txn)
         AnomalyService.check(txn.venue_id)
@@ -38,9 +39,8 @@ class TransactionService:
         async_to_sync(channel_layer.group_send)(
             "dashboard",
             {
-                "type": "venue.metrics.updated",
+                "type": "venue_metrics_updated",
                 "venue_id": txn.venue_id,
             },
         )
-
         return txn

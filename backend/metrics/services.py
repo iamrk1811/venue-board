@@ -185,7 +185,7 @@ class AnomalyService:
         async_to_sync(channel_layer.group_send)(
             "dashboard",
             {
-                "type": "alert.triggered",
+                "type": "alert_triggered",
                 "alert": {
                     "id": alert.id,
                     "venue_id": alert.venue_id,
