@@ -10,9 +10,8 @@ class TransactionItemSerializer(serializers.Serializer):
 
 
 class TransactionIngestSerializer(serializers.Serializer):
-    id = serializers.CharField(read_only=True)
     venue_id = serializers.IntegerField()
-    created_at = serializers.DateTimeField(read_only=True)
+    timestamp = serializers.DateTimeField()
     type = serializers.ChoiceField(choices=[TransactionTypes.SALE, TransactionTypes.VOID, TransactionTypes.REFUND])
     items = TransactionItemSerializer(many=True)
     total = serializers.DecimalField(max_digits=10, decimal_places=2)

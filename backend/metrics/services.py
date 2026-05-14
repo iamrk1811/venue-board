@@ -15,8 +15,8 @@ from asgiref.sync import async_to_sync
 class MetricsService:
     @staticmethod
     def update_on_transaction(txn) -> None:
-        hour = truncate_to_hour(txn.created_at)
-        date = txn.created_at.date()
+        hour = truncate_to_hour(txn.timestamp)
+        date = txn.timestamp.date()
 
         is_sale = txn.type == TransactionTypes.SALE
         is_void = txn.type == TransactionTypes.VOID

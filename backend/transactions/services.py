@@ -14,6 +14,7 @@ class TransactionService:
         with db_transaction.atomic():
             txn = Transaction.objects.create(
                 venue=venue,
+                timestamp=validated_data["timestamp"],
                 type=validated_data["type"],
                 total=validated_data["total"],
                 staff_id=validated_data["staff_id"],
