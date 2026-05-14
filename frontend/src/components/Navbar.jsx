@@ -13,7 +13,7 @@ export default function Navbar({ wsStatus }) {
       </div>
       <button
         onClick={() => dispatch(logout())}
-        className="border border-zinc-700 rounded-md px-3.5 py-1.5 text-zinc-400 text-sm bg-transparent cursor-pointer hover:text-white hover:border-zinc-400 transition-colors"
+        className="border border-zinc-700 rounded-md px-3.5 py-1.5 text-zinc-950 font-semibold text-sm bg-[#ff6a17] cursor-pointer hover:text-white hover:border-zinc-400 transition-colors"
       >
         Sign out
       </button>

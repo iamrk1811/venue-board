@@ -11,7 +11,7 @@ const VenueRow = memo(function VenueRow({ venue, rank, onClick }) {
     >
       <td className={`${tdBase} text-zinc-400 w-8 font-semibold`}>{rank}</td>
       <td className={`${tdBase} font-medium text-white`}>{venue.name}</td>
-      <td className={`${tdBase} text-blue-400 font-semibold`}>£{sales}</td>
+      <td className={`${tdBase} text-blue-400 font-semibold`}>${sales}</td>
       <td className={`${tdBase} text-zinc-400`}>{venue.transaction_count}</td>
       <td className={`${tdBase} text-zinc-400`}>{venue.void_count}</td>
     </tr>

@@ -54,9 +54,7 @@ class DashboardSummaryView(APIView):
         tags=["dashboard"],
         summary="Global dashboard summary",
         description=(
-            "Returns today's aggregated totals, venue rankings by revenue, "
-            "the top 10 items sold across all venues, and a count of active alerts. "
-            "All data is read from precomputed metric tables — no raw transaction scans."
+            "Returns overall summary along with venue ranked list"
         ),
         responses={
             200: _DashboardSummaryResponseSerializer,
@@ -103,8 +101,7 @@ class VenueDetailView(APIView):
         tags=["dashboard"],
         summary="Venue detail",
         description=(
-            "Returns hourly metrics for the last 24 hours, the top 10 items by revenue "
-            "for today, and any active anomaly alerts for the requested venue."
+            "Returns hourly metrics for the last 24 hours and the top 10 items by revenue along with alerts"
         ),
         responses={
             200: _VenueDetailResponseSerializer,

@@ -17,7 +17,7 @@ export default function TopItemsList({ items = [], title = 'Top Items' }) {
                 <span className="flex gap-3 shrink-0">
                   <span className="text-xs text-zinc-400">{item.total_qty} sold</span>
                   <span className="text-sm text-blue-400 font-semibold">
-                    £{revenue.toLocaleString('en-GB', { minimumFractionDigits: 2 })}
+                    ${revenue}
                   </span>
                 </span>
               </li>
