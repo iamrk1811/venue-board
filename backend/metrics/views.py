@@ -1,6 +1,5 @@
 from datetime import timedelta
 
-from django.db.models import Sum
 from django.utils import timezone
 from drf_spectacular.utils import OpenApiResponse, extend_schema, inline_serializer
 from rest_framework import serializers
@@ -9,7 +8,7 @@ from rest_framework.views import APIView
 
 from venues.models import Venue
 from venues.serializers import VenueSerializer
-from .models import Alert, VenueDailySummary, VenueHourlyMetrics, VenueItemDaily
+from .models import Alert, VenueHourlyMetrics, VenueItemDaily
 from .serializers import (
     AlertSerializer,
     HourlyMetricsSerializer,
@@ -62,38 +61,8 @@ class DashboardSummaryView(APIView):
         },
     )
     def get(self, request):
-        today = timezone.now().date()
-
-        summaries = (
-            VenueDailySummary.objects
-            .filter(date=today)
-            .select_related("venue")
-            .order_by("-total_sales")
-        )
-
-        total_sales = sum(s.total_sales for s in summaries)
-        total_transactions = sum(s.transaction_count for s in summaries)
-
-        top_items = list(
-            VenueItemDaily.objects
-            .filter(date=today)
-            .values("item_id", "item_name")
-            .annotate(
-                total_qty=Sum("total_qty"),
-                total_revenue=Sum("total_revenue"),
-            )
-            .order_by("-total_revenue")[:10]
-        )
-
-        active_alert_count = Alert.objects.filter(is_active=True).count()
-
-        return Response({
-            "total_sales_today": str(total_sales),
-            "total_transactions_today": total_transactions,
-            "active_alert_count": active_alert_count,
-            "venue_rankings": VenueRankingSerializer(summaries, many=True).data,
-            "top_items": top_items,
-        })
+        from core.cache import get_summary
+        return Response(get_summary())
 
 
 class VenueDetailView(APIView):

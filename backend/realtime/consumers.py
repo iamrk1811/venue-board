@@ -17,9 +17,10 @@ class DashboardConsumer(AsyncWebsocketConsumer):
 
     # --- Handlers for group_send events ---
 
-    async def venue_metrics_updated(self, event):
+    async def summary_updated(self, event):
         await self.send(text_data=json.dumps({
-            "type": "venue_metrics_updated",
+            "type": "summary_updated",
+            "summary": event["summary"],
             "venue_id": event["venue_id"],
         }))
 

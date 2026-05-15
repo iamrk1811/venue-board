@@ -10,7 +10,6 @@ export function useDashboard() {
   const [selectedVenueId, setSelectedVenueId] = useState(null);
   const [venueDetail, setVenueDetail] = useState(null);
   const [venueDetailLoading, setVenueDetailLoading] = useState(false);
-  const debounceRef = useRef(null);
 
   const loadSummary = useCallback(async () => {
     try {
@@ -42,15 +41,11 @@ export function useDashboard() {
     }
   }, []);
 
+  // initial load summary
   useEffect(() => {
     loadSummary();
     loadAlerts();
   }, [loadSummary, loadAlerts]);
-
-  const debouncedSummaryRefresh = useCallback(() => {
-    clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(loadSummary, 3000);
-  }, [loadSummary]);
 
   const selectedVenueIdRef = useRef(selectedVenueId);
   useEffect(() => {
@@ -59,8 +54,10 @@ export function useDashboard() {
 
   const handleWsMessage = useCallback(
     (msg) => {
-      if (msg.type === "venue_metrics_updated") {
-        debouncedSummaryRefresh();
+      if (msg.type === "summary_updated") {
+        // task queue pushes the computed summary directly
+        setSummary(msg.summary);
+        // if the venue drawer is open for this venue, refresh its detail too
         if (selectedVenueIdRef.current === msg.venue_id) {
           loadVenueDetail(msg.venue_id);
         }
@@ -74,7 +71,7 @@ export function useDashboard() {
       }
       setWsStatus("connected");
     },
-    [debouncedSummaryRefresh, loadVenueDetail],
+    [loadVenueDetail],
   );
 
   const wsRef = useWebSocket(handleWsMessage);
@@ -88,7 +85,6 @@ export function useDashboard() {
     const onClose = () => setWsStatus("reconnecting");
     ws.addEventListener("open", onOpen);
     ws.addEventListener("close", onClose);
-
     // clear everything
     return () => {
       ws.removeEventListener("open", onOpen);

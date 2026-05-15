@@ -103,11 +103,27 @@ DATABASES = {
 
 REDIS_URL = config("REDIS_URL", default="redis://localhost:6379/0")
 
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": REDIS_URL,
+    }
+}
+
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {"hosts": [REDIS_URL]},
     }
+}
+
+CELERY_BROKER_URL = REDIS_URL
+CELERY_RESULT_BACKEND = REDIS_URL
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_TASK_ROUTES = {
+    "metrics.tasks.update_metrics": {"queue": "metrics"},
+    "metrics.tasks.check_anomaly": {"queue": "anomaly"},
 }
 
 REST_FRAMEWORK = {
