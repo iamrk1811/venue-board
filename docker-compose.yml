@@ -6,7 +6,7 @@ services:
       POSTGRES_USER: venueboard
       POSTGRES_PASSWORD: venueboard
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U venueboard"]
       interval: 5s
@@ -24,7 +24,7 @@ services:
   backend:
     build: ./backend
     command: >
-      sh -c "uvicorn venueboard.asgi:application --reload"
+      sh -c "python manage.py migrate --noinput && uvicorn venueboard.asgi:application --host 0.0.0.0 --port 8000 --reload"
     env_file: ./backend/.env
     ports:
       - "8000:8000"
@@ -38,6 +38,10 @@ services:
 
   frontend:
     build: ./frontend
+    env_file: ./frontend/.env
+    environment:
+      - VITE_API_BASE_URL=http://backend:8000
+      - VITE_WS_BASE_URL=ws://backend:8000
     ports:
       - "5173:5173"
     depends_on:
