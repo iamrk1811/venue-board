@@ -122,8 +122,7 @@ CELERY_RESULT_BACKEND = REDIS_URL
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_TASK_ROUTES = {
-    "metrics.tasks.update_metrics": {"queue": "metrics"},
-    "metrics.tasks.check_anomaly": {"queue": "anomaly"},
+    "metrics.tasks.process_transaction": {"queue": "metrics"},
 }
 
 REST_FRAMEWORK = {

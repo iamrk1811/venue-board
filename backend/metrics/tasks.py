@@ -1,19 +1,22 @@
-from celery import shared_task
 from asgiref.sync import async_to_sync
+from celery import shared_task
 from channels.layers import get_channel_layer
 
 
 @shared_task
-def update_metrics(txn_id: str) -> None:
+def process_transaction(txn_id: str) -> None:
     """
-    Update hourly/daily metrics for a transaction
+    Update metrics, run anomaly detection, refresh the summary cache,
+    and push the result to all connected dashboard clients in one shot.
     """
-    from transactions.models import Transaction
-    from metrics.services import MetricsService
     from core.cache import refresh_summary
+    from metrics.services import AnomalyService, MetricsService
+    from transactions.models import Transaction
 
     txn = Transaction.objects.get(pk=txn_id)
+
     MetricsService.update_on_transaction(txn)
+    AnomalyService.check(txn.venue_id)
 
     summary = refresh_summary()
 
@@ -25,13 +28,3 @@ def update_metrics(txn_id: str) -> None:
             "venue_id": txn.venue_id,
         },
     )
-
-
-@shared_task
-def check_anomaly(venue_id: int) -> None:
-    """
-    Run anomaly detection for a venue
-    """
-    from metrics.services import AnomalyService
-
-    AnomalyService.check(venue_id)

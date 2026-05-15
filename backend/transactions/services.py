@@ -31,10 +31,7 @@ class TransactionService:
         if txn is None:
             # TODO handle failure
             return
-        # import here to avoid circular imports at module load time
-        from metrics.tasks import update_metrics, check_anomaly
-
-        update_metrics.apply_async(args=[str(txn.id)], queue="metrics")
-        check_anomaly.apply_async(args=[txn.venue_id], queue="anomaly")
+        from metrics.tasks import process_transaction
+        process_transaction.apply_async(args=[str(txn.id)], queue="metrics")
 
         return txn
