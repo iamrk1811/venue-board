@@ -3,11 +3,14 @@ from datetime import timedelta
 from django.utils import timezone
 from drf_spectacular.utils import OpenApiResponse, extend_schema, inline_serializer
 from rest_framework import serializers
-from rest_framework.response import Response
+from rest_framework.exceptions import NotFound
 from rest_framework.views import APIView
 
+from core.cache import get_summary
+from core.responses import success_response
 from venues.models import Venue
 from venues.serializers import VenueSerializer
+
 from .models import Alert, VenueHourlyMetrics, VenueItemDaily
 from .serializers import (
     AlertSerializer,
@@ -15,7 +18,6 @@ from .serializers import (
     TopItemSerializer,
     VenueRankingSerializer,
 )
-from core.cache import get_summary
 
 _TopItemInlineSerializer = inline_serializer(
     name="DashboardTopItem",
@@ -62,7 +64,7 @@ class DashboardSummaryView(APIView):
         },
     )
     def get(self, request):
-        return Response(get_summary())
+        return success_response(get_summary())
 
 
 class VenueDetailView(APIView):
@@ -82,7 +84,7 @@ class VenueDetailView(APIView):
         try:
             venue = Venue.objects.get(pk=venue_id)
         except Venue.DoesNotExist:
-            return Response({"detail": "Not found."}, status=404)
+            raise NotFound("Venue not found.")
 
         today = timezone.now().date()
         since = timezone.now() - timedelta(hours=24)
@@ -105,7 +107,7 @@ class VenueDetailView(APIView):
             .order_by("-created_at")
         )
 
-        return Response({
+        return success_response({
             "venue": VenueSerializer(venue).data,
             "hourly_metrics": HourlyMetricsSerializer(hourly, many=True).data,
             "top_items": TopItemSerializer(top_items, many=True).data,
@@ -130,4 +132,4 @@ class AlertListView(APIView):
             .select_related("venue")
             .order_by("-created_at")[:50]
         )
-        return Response(AlertSerializer(alerts, many=True).data)
+        return success_response(AlertSerializer(alerts, many=True).data)

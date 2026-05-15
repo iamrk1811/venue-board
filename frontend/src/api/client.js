@@ -14,9 +14,14 @@ client.interceptors.request.use((config) => {
   return config;
 });
 
-// attempt token refresh then retry once
+// unwrap standard envelope {success, data} — pass JWT responses through unchanged
 client.interceptors.response.use(
-  (res) => res,
+  (res) => {
+    if (res.data && typeof res.data === "object" && "success" in res.data) {
+      res.data = res.data.data;
+    }
+    return res;
+  },
   async (error) => {
     const original = error.config;
     if (error.response?.status === 401 && !original._retry) {

@@ -1,7 +1,8 @@
 from drf_spectacular.utils import OpenApiResponse, extend_schema
-from rest_framework import status
-from rest_framework.response import Response
 from rest_framework.views import APIView
+
+from core.responses import success_response
+
 from .serializers import TransactionIngestSerializer
 from .services import TransactionService
 
@@ -22,4 +23,4 @@ class TransactionIngestView(APIView):
         serializer = TransactionIngestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         TransactionService.ingest(serializer.validated_data)
-        return Response({"status": "ok"}, status=status.HTTP_201_CREATED)
+        return success_response(None, status=201)
