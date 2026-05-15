@@ -15,6 +15,7 @@ from .serializers import (
     TopItemSerializer,
     VenueRankingSerializer,
 )
+from core.cache import get_summary
 
 _TopItemInlineSerializer = inline_serializer(
     name="DashboardTopItem",
@@ -61,7 +62,6 @@ class DashboardSummaryView(APIView):
         },
     )
     def get(self, request):
-        from core.cache import get_summary
         return Response(get_summary())
 
 
