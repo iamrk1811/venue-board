@@ -33,10 +33,7 @@ export default function VenueRankingTable({ rankings = [], onVenueClick }) {
           <thead>
             <tr>
               {["#", "Venue", "Sales", "Transactions", "Voids"].map((h) => (
-                <th
-                  key={h}
-                  className="text-left px-2.5 py-1.5 text-zinc-400 font-medium border-b border-zinc-700"
-                >
+                <th key={h} className="text-left px-2.5 py-1.5 text-zinc-400 font-medium border-b border-zinc-700">
                   {h}
                 </th>
               ))}
