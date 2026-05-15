@@ -5,6 +5,7 @@ const MAX_DELAY = 30000;
 
 export function useWebSocket(onMessage) {
   const wsRef = useRef(null);
+  const timerRef = useRef(null);
   const delayRef = useRef(BASE_DELAY);
   const onMessageRef = useRef(onMessage);
   const unmountedRef = useRef(false);
@@ -14,10 +15,13 @@ export function useWebSocket(onMessage) {
   }, [onMessage]);
 
   const connect = useCallback(() => {
-    if (unmountedRef.current)
+    if (unmountedRef.current) {
       return;
-    const token = window.__accessToken;
+    }
 
+    clearTimeout(timerRef.current);
+
+    const token = window.__accessToken;
     const ws = new WebSocket(`/ws/dashboard/?token=${token}`);
     wsRef.current = ws;
 
@@ -30,18 +34,25 @@ export function useWebSocket(onMessage) {
         const data = JSON.parse(e.data);
         onMessageRef.current(data);
       } catch {
-        console.log("something went wrong")
+        console.log("something went wrong");
       }
     };
 
-    ws.onclose = () => {
-      if (unmountedRef.current) return;
+    ws.onclose = (e) => {
+      if (unmountedRef.current) {
+        return;
+      }
+      if (wsRef.current !== ws) {
+        return;
+      }
       const delay = delayRef.current;
       delayRef.current = Math.min(delay * 2, MAX_DELAY);
-      setTimeout(connect, delay);
+      timerRef.current = setTimeout(connect, delay);
     };
 
-    ws.onerror = () => ws.close();
+    ws.onerror = () => {
+      ws.close();
+    };
   }, []);
 
   useEffect(() => {
@@ -50,6 +61,7 @@ export function useWebSocket(onMessage) {
 
     return () => {
       unmountedRef.current = true;
+      clearTimeout(timerRef.current);
       wsRef.current?.close();
     };
   }, [connect]);

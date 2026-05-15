@@ -3,7 +3,9 @@ import TopItemsList from './TopItemsList'
 import AlertsPanel from './AlertsPanel'
 
 export default function VenueContainer({ detail, loading, onClose }) {
-  if (!detail && !loading) return null
+  if (!detail && !loading) {
+    return null;
+  }
 
   return (
     <div className="fixed inset-0 bg-black/55 z-100 flex justify-end" onClick={onClose}>

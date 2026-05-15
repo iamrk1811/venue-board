@@ -23,14 +23,18 @@ client.interceptors.response.use(
       original._retry = true;
       try {
         const refresh = localStorage.getItem("refresh_token");
-        if (!refresh) throw new Error("no refresh token");
+        if (!refresh) {
+          throw new Error("no refresh token");
+        }
         const { data } = await axios.post("/api/auth/token/refresh/", {
           refresh,
         });
         window.__accessToken = data.access;
         localStorage.setItem("access_token", data.access);
         // persist rotated refresh token if the backend returns one
-        if (data.refresh) localStorage.setItem("refresh_token", data.refresh);
+        if (data.refresh) {
+          localStorage.setItem("refresh_token", data.refresh);
+        }
         original.headers.Authorization = `Bearer ${data.access}`;
         return client(original);
       } catch {
