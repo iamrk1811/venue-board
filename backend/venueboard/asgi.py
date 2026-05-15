@@ -13,14 +13,16 @@ import django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'venueboard.settings')
 django.setup()
 
+from django.conf import settings
 from django.core.asgi import get_asgi_application
+from django.contrib.staticfiles.handlers import ASGIStaticFilesHandler
 from channels.routing import ProtocolTypeRouter, URLRouter
 from realtime.routing import websocket_urlpatterns
 from realtime.middleware import JWTAuthMiddleware
 
 
 application = ProtocolTypeRouter({
-    "http": get_asgi_application(),
+    "http": ASGIStaticFilesHandler(get_asgi_application()) if settings.DEBUG else get_asgi_application(),
     "websocket": JWTAuthMiddleware(
         URLRouter(websocket_urlpatterns)
     ),
