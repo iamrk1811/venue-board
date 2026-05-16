@@ -148,12 +148,7 @@ class AnomalyService:
                 )
                 AnomalyService._broadcast_alert(alert)
         else:
-            resolved = Alert.objects.filter(venue_id=venue_id, type="sales_drop", is_active=True).update(
-                is_active=False,
-                resolved_at=now,
-            )
-            if resolved:
-                logger.info("sales_drop alert resolved for venue_id=%s", venue_id)
+            AnomalyService._resolve_alerts(venue_id, "sales_drop", now)
 
     @staticmethod
     def _check_void_spike(venue_id, now, current, previous) -> None:
@@ -192,12 +187,7 @@ class AnomalyService:
                 )
                 AnomalyService._broadcast_alert(alert)
         else:
-            resolved = Alert.objects.filter(venue_id=venue_id, type="void_spike", is_active=True).update(
-                is_active=False,
-                resolved_at=now,
-            )
-            if resolved:
-                logger.info("void_spike alert resolved for venue_id=%s", venue_id)
+            AnomalyService._resolve_alerts(venue_id, "void_spike", now)
 
     @staticmethod
     def _check_refund_spike(venue_id, now, current, previous) -> None:
@@ -236,12 +226,18 @@ class AnomalyService:
                 )
                 AnomalyService._broadcast_alert(alert)
         else:
-            resolved = Alert.objects.filter(venue_id=venue_id, type="refund_spike", is_active=True).update(
-                is_active=False,
-                resolved_at=now,
-            )
-            if resolved:
-                logger.info("refund_spike alert resolved for venue_id=%s", venue_id)
+            AnomalyService._resolve_alerts(venue_id, "refund_spike", now)
+
+    @staticmethod
+    def _resolve_alerts(venue_id: int, alert_type: str, now) -> None:
+        qs = Alert.objects.filter(venue_id=venue_id, type=alert_type, is_active=True)
+        alert_ids = list(qs.values_list("id", flat=True))
+        if not alert_ids:
+            return
+        qs.update(is_active=False, resolved_at=now)
+        for alert_id in alert_ids:
+            AnomalyService._broadcast_resolved(alert_id)
+        logger.info("%s alert resolved for venue_id=%s", alert_type, venue_id)
 
     @staticmethod
     def _broadcast_alert(alert: Alert) -> None:
@@ -267,3 +263,17 @@ class AnomalyService:
                 "failed to broadcast alert id=%s type=%s venue_id=%s",
                 alert.id, alert.type, alert.venue_id, exc_info=True,
             )
+
+    @staticmethod
+    def _broadcast_resolved(alert_id: int) -> None:
+        channel_layer = get_channel_layer()
+        try:
+            async_to_sync(channel_layer.group_send)(
+                "dashboard",
+                {
+                    "type": "alert_resolved",
+                    "alert_id": alert_id,
+                },
+            )
+        except Exception:
+            logger.error("failed to broadcast alert_resolved id=%s", alert_id, exc_info=True)
