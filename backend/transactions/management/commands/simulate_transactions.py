@@ -51,19 +51,26 @@ WEIGHTS = {
 }
 
 TXN_TYPES = [TransactionTypes.SALE, TransactionTypes.VOID, TransactionTypes.REFUND]
-TXN_WEIGHTS = [80, 12, 8]
+TXN_WEIGHTS = [75, 15, 10]
 
 # Map VenueTypes int to menu key
-VENUE_TYPE_MENU = {1: "pub", 2: "restaurant", 3: "function_space"}
+VENUE_TYPE_MENU = {
+    1: "pub",
+    2: "restaurant",
+    3: "function_space"
+}
 
 
 def pick_items(venue_type_int: int, is_sale: bool) -> list[dict]:
     if not is_sale:
         return []
+
     menu_key = VENUE_TYPE_MENU.get(venue_type_int, "pub")
     menu = MENUS[menu_key]
+
     weights = WEIGHTS[menu_key]
     n_items = random.choices([1, 2, 3, 4], weights=[40, 35, 15, 10])[0]
+
     chosen = random.choices(menu, weights=weights, k=n_items)
     return [
         {
@@ -79,6 +86,7 @@ def pick_items(venue_type_int: int, is_sale: bool) -> list[dict]:
 def build_payload(venue, occurred_at) -> dict:
     txn_type = random.choices(TXN_TYPES, weights=TXN_WEIGHTS)[0]
     is_sale = txn_type == TransactionTypes.SALE
+
     items = pick_items(venue.type, is_sale)
     if items:
         total = sum(Decimal(str(i["price"])) * i["qty"] for i in items)
@@ -96,6 +104,7 @@ def build_payload(venue, occurred_at) -> dict:
     }
 
 
+# simulating the transaction service
 def ingest(data: dict, stderr) -> bool:
     serializer = TransactionIngestSerializer(data=data)
     if not serializer.is_valid():
@@ -168,8 +177,7 @@ class Command(BaseCommand):
             try:
                 ingest(build_payload(venue, timezone.now()), self.stderr)
                 count += 1
-                if count % 50 == 0:
-                    self.stdout.write(f"  {count} transactions generated...")
+                self.stdout.write(f"{count} transactions generated...")
             except Exception as e:
                 self.stderr.write(f"Error: {e}")
 
