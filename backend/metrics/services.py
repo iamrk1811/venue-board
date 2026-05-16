@@ -225,7 +225,8 @@ class AnomalyService:
                 "alert": {
                     "id": alert.id,
                     "venue_id": alert.venue_id,
-                    "alert_type": alert.type,
+                    "venue_name": alert.venue.name if alert.venue_id else None,
+                    "type": alert.type,
                     "severity": alert.severity,
                     "message": alert.message,
                     "created_at": alert.created_at.isoformat(),
