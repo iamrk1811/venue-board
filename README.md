@@ -1,3 +1,4 @@
+Hosted URL: www.18bits.in
 # Venue Board
 
 A real-time hospitality operations dashboard. Venues (pubs, restaurants, function spaces) send POS transactions to the API, the dashboard updates live via WebSocket and raises anomaly alerts when sales drop or void/refund rates spike.
