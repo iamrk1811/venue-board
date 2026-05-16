@@ -1,10 +1,8 @@
 import logging
-
 from django.db import transaction as db_transaction
-
 from venues.models import Venue
-
 from .models import Transaction, TransactionItem
+from metrics.tasks import process_transaction
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +13,7 @@ class TransactionService:
         venue = Venue.objects.get(pk=validated_data["venue_id"])
         txn = None
 
+        # sync transaction creation
         with db_transaction.atomic():
             txn = Transaction.objects.create(
                 venue=venue,
@@ -39,14 +38,13 @@ class TransactionService:
                 "transaction creation returned None for venue_id=%s type=%s",
                 validated_data.get("venue_id"), validated_data.get("type"),
             )
-            return
+            return None
 
         logger.info(
             "transaction ingested txn_id=%s venue_id=%s type=%s total=%s items=%d",
             txn.id, txn.venue_id, txn.type, txn.total, len(validated_data.get("items", [])),
         )
 
-        from metrics.tasks import process_transaction
+        # async metrics creation
         process_transaction.apply_async(args=[str(txn.id)], queue="metrics")
-
         return txn

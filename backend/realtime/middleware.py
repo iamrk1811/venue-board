@@ -6,7 +6,9 @@ from rest_framework_simplejwt.tokens import AccessToken
 from rest_framework_simplejwt.exceptions import TokenError
 from django.contrib.auth import get_user_model
 from channels.exceptions import DenyConnection
+import logging
 
+logger = logging.getLogger(__name__)
 
 @database_sync_to_async
 def get_user_from_token(token_str):
@@ -16,7 +18,7 @@ def get_user_from_token(token_str):
         user = User.objects.get(pk=token["user_id"])
         return user
     except (TokenError, User.DoesNotExist, KeyError) as e:
-        print(f"[JWTAuthMiddleware] token error: {type(e).__name__}: {e}")
+        logger.error(f"[JWTAuthMiddleware] token error: {type(e).__name__}: {e}")
         return AnonymousUser()
 
 
