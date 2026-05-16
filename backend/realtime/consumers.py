@@ -1,5 +1,9 @@
 import json
+import logging
+
 from channels.generic.websocket import AsyncWebsocketConsumer
+
+logger = logging.getLogger(__name__)
 
 
 class DashboardConsumer(AsyncWebsocketConsumer):
@@ -8,9 +12,11 @@ class DashboardConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         await self.channel_layer.group_add(self.GROUP, self.channel_name)
         await self.accept()
+        logger.info("websocket connected channel=%s", self.channel_name)
 
     async def disconnect(self, close_code):
         await self.channel_layer.group_discard(self.GROUP, self.channel_name)
+        logger.info("websocket disconnected channel=%s code=%s", self.channel_name, close_code)
 
     async def receive(self, text_data=None, bytes_data=None):
         pass

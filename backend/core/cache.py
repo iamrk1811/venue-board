@@ -1,12 +1,17 @@
+import logging
 from decimal import Decimal
+
 from django.core.cache import cache
 from django.db.models import Sum
 from django.utils import timezone
-from metrics.models import Alert, VenueItemDaily, VenueDailySummary
-from transactions.const import TransactionTypes
-from metrics.serializers import VenueRankingSerializer
 
-SUMMARY_TTL = 900 # 15min after, force rebuild summary
+from metrics.models import Alert, VenueDailySummary, VenueItemDaily
+from metrics.serializers import VenueRankingSerializer
+from transactions.const import TransactionTypes
+
+logger = logging.getLogger(__name__)
+
+SUMMARY_TTL = 900  # 15 min safety-net rebuild
 
 
 def _summary_key():
@@ -14,8 +19,9 @@ def _summary_key():
 
 
 def build_summary() -> dict:
-    """Compute the dashboard summary from the DB. Always reads fresh data"""
+    """Compute the dashboard summary from the DB. Always reads fresh data."""
     today = timezone.now().date()
+    logger.info("building summary from db for date=%s", today)
 
     summaries = (
         VenueDailySummary.objects
@@ -151,6 +157,7 @@ def accumulate_summary(txn) -> dict:
         if data is not None:
             cache.set(key, data, SUMMARY_TTL)
             return data
+    logger.warning("summary cache miss for txn_id=%s, falling back to full rebuild", txn.id)
     data = build_summary()
     cache.set(key, data, SUMMARY_TTL)
     return data

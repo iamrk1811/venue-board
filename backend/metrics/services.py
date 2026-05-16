@@ -1,16 +1,21 @@
+import logging
 from datetime import timedelta
 from decimal import Decimal
 
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
+from decouple import config
 from django.db import transaction as db_transaction
 from django.db.models import F
 from django.utils import timezone
 
-from .models import VenueHourlyMetrics, VenueDailySummary, VenueItemDaily, Alert
-from transactions.const import TransactionTypes
 from core.utils import truncate_to_hour
-from decouple import config
-from channels.layers import get_channel_layer
-from asgiref.sync import async_to_sync
+from transactions.const import TransactionTypes
+
+from .models import Alert, VenueDailySummary, VenueHourlyMetrics, VenueItemDaily
+
+logger = logging.getLogger(__name__)
+
 
 class MetricsService:
     @staticmethod
@@ -82,6 +87,11 @@ class MetricsService:
                         total_revenue=F("total_revenue") + (item.price * item.qty),
                     )
 
+        logger.info(
+            "metrics updated for txn_id=%s venue_id=%s type=%s amount=%s",
+            txn.id, txn.venue_id, txn.type, sale_amount,
+        )
+
 
 class AnomalyService:
     @staticmethod
@@ -132,12 +142,18 @@ class AnomalyService:
                 },
             )
             if created:
+                logger.warning(
+                    "sales_drop alert [%s] for venue_id=%s: drop=%.0f%% current=$%.2f previous=$%.2f",
+                    severity, venue_id, drop_percent * 100, current.total_sales, previous.total_sales,
+                )
                 AnomalyService._broadcast_alert(alert)
         else:
-            Alert.objects.filter(venue_id=venue_id, type="sales_drop", is_active=True).update(
+            resolved = Alert.objects.filter(venue_id=venue_id, type="sales_drop", is_active=True).update(
                 is_active=False,
                 resolved_at=now,
             )
+            if resolved:
+                logger.info("sales_drop alert resolved for venue_id=%s", venue_id)
 
     @staticmethod
     def _check_void_spike(venue_id, now, current, previous) -> None:
@@ -170,12 +186,18 @@ class AnomalyService:
                 },
             )
             if created:
+                logger.warning(
+                    "void_spike alert [%s] for venue_id=%s: spike=%.0f%% current=%.0f%% previous=%.0f%%",
+                    severity, venue_id, spike_percent * 100, current_void_rate * 100, prev_void_rate * 100,
+                )
                 AnomalyService._broadcast_alert(alert)
         else:
-            Alert.objects.filter(venue_id=venue_id, type="void_spike", is_active=True).update(
+            resolved = Alert.objects.filter(venue_id=venue_id, type="void_spike", is_active=True).update(
                 is_active=False,
                 resolved_at=now,
             )
+            if resolved:
+                logger.info("void_spike alert resolved for venue_id=%s", venue_id)
 
     @staticmethod
     def _check_refund_spike(venue_id, now, current, previous) -> None:
@@ -208,28 +230,40 @@ class AnomalyService:
                 },
             )
             if created:
+                logger.warning(
+                    "refund_spike alert [%s] for venue_id=%s: spike=%.0f%% current=%.0f%% previous=%.0f%%",
+                    severity, venue_id, spike_percent * 100, current_refund_rate * 100, prev_refund_rate * 100,
+                )
                 AnomalyService._broadcast_alert(alert)
         else:
-            Alert.objects.filter(venue_id=venue_id, type="refund_spike", is_active=True).update(
+            resolved = Alert.objects.filter(venue_id=venue_id, type="refund_spike", is_active=True).update(
                 is_active=False,
                 resolved_at=now,
             )
+            if resolved:
+                logger.info("refund_spike alert resolved for venue_id=%s", venue_id)
 
     @staticmethod
     def _broadcast_alert(alert: Alert) -> None:
         channel_layer = get_channel_layer()
-        async_to_sync(channel_layer.group_send)(
-            "dashboard",
-            {
-                "type": "alert_triggered",
-                "alert": {
-                    "id": alert.id,
-                    "venue_id": alert.venue_id,
-                    "venue_name": alert.venue.name if alert.venue_id else None,
-                    "type": alert.type,
-                    "severity": alert.severity,
-                    "message": alert.message,
-                    "created_at": alert.created_at.isoformat(),
+        try:
+            async_to_sync(channel_layer.group_send)(
+                "dashboard",
+                {
+                    "type": "alert_triggered",
+                    "alert": {
+                        "id": alert.id,
+                        "venue_id": alert.venue_id,
+                        "venue_name": alert.venue.name if alert.venue_id else None,
+                        "type": alert.type,
+                        "severity": alert.severity,
+                        "message": alert.message,
+                        "created_at": alert.created_at.isoformat(),
+                    },
                 },
-            },
-        )
+            )
+        except Exception:
+            logger.error(
+                "failed to broadcast alert id=%s type=%s venue_id=%s",
+                alert.id, alert.type, alert.venue_id, exc_info=True,
+            )

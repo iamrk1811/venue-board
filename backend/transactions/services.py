@@ -1,6 +1,12 @@
+import logging
+
 from django.db import transaction as db_transaction
+
 from venues.models import Venue
+
 from .models import Transaction, TransactionItem
+
+logger = logging.getLogger(__name__)
 
 
 class TransactionService:
@@ -29,8 +35,17 @@ class TransactionService:
             ])
 
         if txn is None:
-            # TODO handle failure
+            logger.error(
+                "transaction creation returned None for venue_id=%s type=%s",
+                validated_data.get("venue_id"), validated_data.get("type"),
+            )
             return
+
+        logger.info(
+            "transaction ingested txn_id=%s venue_id=%s type=%s total=%s items=%d",
+            txn.id, txn.venue_id, txn.type, txn.total, len(validated_data.get("items", [])),
+        )
+
         from metrics.tasks import process_transaction
         process_transaction.apply_async(args=[str(txn.id)], queue="metrics")
 
