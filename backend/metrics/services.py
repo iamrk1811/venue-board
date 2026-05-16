@@ -86,28 +86,36 @@ class MetricsService:
 class AnomalyService:
     @staticmethod
     def check(venue_id: int) -> None:
-        AnomalyService._check_sales_drop(venue_id)
-        AnomalyService._check_void_spike(venue_id)
-
-    @staticmethod
-    def _check_sales_drop(venue_id: int) -> None:
         now = timezone.now()
         current_hour = truncate_to_hour(now)
         prev_hour = current_hour - timedelta(hours=1)
 
-        try:
-            current = VenueHourlyMetrics.objects.get(venue_id=venue_id, hour=current_hour)
-            previous = VenueHourlyMetrics.objects.get(venue_id=venue_id, hour=prev_hour)
-        except VenueHourlyMetrics.DoesNotExist:
+        rows = {
+            m.hour: m
+            for m in VenueHourlyMetrics.objects.filter(
+                venue_id=venue_id,
+                hour__in=[current_hour, prev_hour],
+            )
+        }
+        current = rows.get(current_hour)
+        previous = rows.get(prev_hour)
+
+        if current is None or previous is None:
             return
 
+        AnomalyService._check_sales_drop(venue_id, now, current, previous)
+        AnomalyService._check_void_spike(venue_id, now, current, previous)
+        AnomalyService._check_refund_spike(venue_id, now, current, previous)
+
+    @staticmethod
+    def _check_sales_drop(venue_id, now, current, previous) -> None:
         if previous.total_sales <= 0:
             return
 
         drop_percent = float(previous.total_sales - current.total_sales) / float(previous.total_sales)
 
         sale_drop_warning_threshold = config("SALES_DROP_PERCENT", cast=float, default=0.40)
-        sale_drop_critical_threshold = config("SALES_DROP_CRITICAL_THRESHOLD", cast=float, default=0.70)
+        sale_drop_critical_threshold = config("SALES_DROP_CRITICAL_PERCENT", cast=float, default=0.70)
 
         if drop_percent >= sale_drop_warning_threshold:
             severity = "critical" if drop_percent >= sale_drop_critical_threshold else "warning"
@@ -126,58 +134,86 @@ class AnomalyService:
             if created:
                 AnomalyService._broadcast_alert(alert)
         else:
-            # Resolve existing alert if sales have recovered
             Alert.objects.filter(venue_id=venue_id, type="sales_drop", is_active=True).update(
                 is_active=False,
                 resolved_at=now,
             )
 
     @staticmethod
-    def _check_void_spike(venue_id: int) -> None:
-        now = timezone.now()
-        current_hour = truncate_to_hour(now)
-        seven_days_ago = current_hour - timedelta(days=7)
-
-        try:
-            current = VenueHourlyMetrics.objects.get(venue_id=venue_id, hour=current_hour)
-        except VenueHourlyMetrics.DoesNotExist:
+    def _check_void_spike(venue_id, now, current, previous) -> None:
+        if previous.transaction_count < 5 or current.transaction_count < 5:
             return
 
-        if current.transaction_count < 5:
-            return
-
+        prev_void_rate = previous.void_count / previous.transaction_count
         current_void_rate = current.void_count / current.transaction_count
 
-        # Baseline: avg void rate at the same hour-of-day over the past 7 days
-        baseline_qs = VenueHourlyMetrics.objects.filter(
-            venue_id=venue_id,
-            hour__gte=seven_days_ago,
-            hour__lt=current_hour,
-            hour__hour=current_hour.hour,
-            transaction_count__gt=0,
-        )
-        if not baseline_qs.exists():
+        if prev_void_rate <= 0:
             return
 
-        total_voids = sum(m.void_count for m in baseline_qs)
-        total_txns = sum(m.transaction_count for m in baseline_qs)
-        baseline_rate = total_voids / total_txns if total_txns > 0 else 0
+        void_spike_warning = config("VOID_SPIKE_PERCENT", cast=float, default=0.50)
+        void_spike_critical = config("VOID_SPIKE_CRITICAL_PERCENT", cast=float, default=0.70)
 
-        if baseline_rate > 0 and current_void_rate > baseline_rate * 2.0:
+        spike_percent = (current_void_rate - prev_void_rate) / prev_void_rate
+
+        if spike_percent >= void_spike_warning:
+            severity = "critical" if spike_percent >= void_spike_critical else "warning"
             alert, created = Alert.objects.get_or_create(
                 venue_id=venue_id,
                 type="void_spike",
                 is_active=True,
                 defaults={
-                    "severity": "warning",
+                    "severity": severity,
                     "message": (
-                        f"Void rate {current_void_rate:.0%} is 2x above the 7-day baseline "
-                        f"({baseline_rate:.0%}) for this hour"
+                        f"Void rate increased {spike_percent:.0%} vs previous hour "
+                        f"({current_void_rate:.0%} vs {prev_void_rate:.0%})"
                     ),
                 },
             )
             if created:
                 AnomalyService._broadcast_alert(alert)
+        else:
+            Alert.objects.filter(venue_id=venue_id, type="void_spike", is_active=True).update(
+                is_active=False,
+                resolved_at=now,
+            )
+
+    @staticmethod
+    def _check_refund_spike(venue_id, now, current, previous) -> None:
+        if previous.transaction_count < 5 or current.transaction_count < 5:
+            return
+
+        prev_refund_rate = previous.refund_count / previous.transaction_count
+        current_refund_rate = current.refund_count / current.transaction_count
+
+        if prev_refund_rate <= 0:
+            return
+
+        refund_spike_warning = config("REFUND_SPIKE_PERCENT", cast=float, default=0.50)
+        refund_spike_critical = config("REFUND_SPIKE_CRITICAL_PERCENT", cast=float, default=0.70)
+
+        spike_percent = (current_refund_rate - prev_refund_rate) / prev_refund_rate
+
+        if spike_percent >= refund_spike_warning:
+            severity = "critical" if spike_percent >= refund_spike_critical else "warning"
+            alert, created = Alert.objects.get_or_create(
+                venue_id=venue_id,
+                type="refund_spike",
+                is_active=True,
+                defaults={
+                    "severity": severity,
+                    "message": (
+                        f"Refund rate increased {spike_percent:.0%} vs previous hour "
+                        f"({current_refund_rate:.0%} vs {prev_refund_rate:.0%})"
+                    ),
+                },
+            )
+            if created:
+                AnomalyService._broadcast_alert(alert)
+        else:
+            Alert.objects.filter(venue_id=venue_id, type="refund_spike", is_active=True).update(
+                is_active=False,
+                resolved_at=now,
+            )
 
     @staticmethod
     def _broadcast_alert(alert: Alert) -> None:

@@ -1,6 +1,6 @@
 # Venue Board
 
-A real-time hospitality operations dashboard. Venues (pubs, restaurants, function spaces) send POS transactions to the API, the dashboard updates live via WebSocket and raises anomaly alerts when sales drop or void rates spike.
+A real-time hospitality operations dashboard. Venues (pubs, restaurants, function spaces) send POS transactions to the API, the dashboard updates live via WebSocket and raises anomaly alerts when sales drop or void/refund rates spike.
 
 ---
 
@@ -106,10 +106,11 @@ python manage.py simulate_transactions --rate 3
 
 ### Anomaly detection rules
 
-Two detectors run after every transaction for the affected venue:
+Three detectors run after every transaction for the affected venue. All three require at least 5 transactions in both the current and previous hour before firing, to avoid noise on low volume. Alerts automatically resolve when the metric recovers.
 
-- **Sales drop** compares current-hour sales against the previous hour. Raises `warning` at ≥40% drop, `critical` at ≥70% (values are configurable). Automatically resolves the alert when the ratio recovers.
-- **Void spike** compares the current hour's void rate against the same hour of day average over the past 7 days. Fires when >= 2× the baseline and at least 5 transactions have occurred (to avoid noise on low volume).
+- **Sales drop** compares current-hour total sales against the previous hour. Raises `warning` at ≥40% drop, `critical` at ≥70% (configurable via `SALES_DROP_PERCENT` and `SALES_DROP_CRITICAL_PERCENT`).
+- **Void spike** compares the current hour's void rate (voids ÷ transactions) against the previous hour's void rate. Raises `warning` at ≥50% increase, `critical` at ≥70% increase (configurable via `VOID_SPIKE_PERCENT` and `VOID_SPIKE_CRITICAL_PERCENT`). No alert fires if the previous hour had a zero void rate.
+- **Refund spike** applies the same percentage logic to refund rates. Raises `warning` at ≥50% increase, `critical` at ≥70% increase (configurable via `REFUND_SPIKE_PERCENT` and `REFUND_SPIKE_CRITICAL_PERCENT`).
 
 ### Single shared WebSocket group
 
